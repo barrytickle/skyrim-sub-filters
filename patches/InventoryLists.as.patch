@@ -1,0 +1,116 @@
+--- a/source/actionscript/ItemMenus/InventoryLists.as
++++ b/source/actionscript/ItemMenus/InventoryLists.as
+@@ -10,6 +10,10 @@
+    var _platform;
+    var _rightTabText;
+    var _sortFilter;
++   var _subCategoryFilter;
++   var _subCategoryBar;
++   var _subBarApplied;
++   var _subBarSet;
+    var _tabBarIconArt;
+    var _typeFilter;
+    var categoryLabel;
+@@ -41,6 +45,7 @@
+       this._typeFilter = new skyui.filter.ItemTypeFilter();
+       this._nameFilter = new skyui.filter.NameFilter();
+       this._sortFilter = new skyui.filter.SortFilter();
++      this._subCategoryFilter = new skyui.filter.SubCategoryFilter();
+       this.categoryList = this.panelContainer.categoryList;
+       this.categoryLabel = this.panelContainer.categoryLabel;
+       this.itemList = this.panelContainer.itemList;
+@@ -79,11 +84,19 @@
+       this.categoryList.listEnumeration = new skyui.components.list.BasicEnumeration(this.categoryList.entryList);
+       var _loc2_ = new skyui.components.list.FilteredEnumeration(this.itemList.entryList);
+       _loc2_.addFilter(this._typeFilter);
++      _loc2_.addFilter(this._subCategoryFilter);
+       _loc2_.addFilter(this._nameFilter);
+       _loc2_.addFilter(this._sortFilter);
+       this.itemList.listEnumeration = _loc2_;
+       this.itemList.listState.maxTextLength = 80;
+       this._typeFilter.addEventListener("filterChange",this,"onFilterChange");
++      this._subCategoryFilter.addEventListener("filterChange",this,"onFilterChange");
++      this._subCategoryBar = new skyui.components.SubCategoryBar(this.panelContainer,"subCategoryBar",this.panelContainer.getNextHighestDepth(),this.categoryList.background._width);
++      this._subCategoryBar.setPosition(this.categoryList._x,this.categoryList._y + this.categoryList._height + 2);
++      this._subCategoryBar.addEventListener("categoryPress",this,"onSubCategoryPress");
++      this._subBarApplied = false;
++      this._subBarSet = 0;
++      this.updateSubCategoryBar();
+       this._nameFilter.addEventListener("filterChange",this,"onFilterChange");
+       this._sortFilter.addEventListener("filterChange",this,"onFilterChange");
+       this.categoryList.addEventListener("itemPress",this,"onCategoriesItemPress");
+@@ -305,6 +318,66 @@
+          this._sortOrderKey = _loc2_.Input.controls.gamepad.sortOrder;
+       }
+    }
++   function updateSubCategoryBar()
++   {
++      if(this._subCategoryBar == undefined)
++      {
++         return undefined;
++      }
++      var _flag = this.categoryList.selectedEntry.flag;
++      var _set = 0;
++      if(_flag == 2)
++      {
++         _set = 1;
++      }
++      else if(_flag == 4)
++      {
++         _set = 2;
++      }
++      var _show = _set != 0;
++      if(_set != this._subBarSet)
++      {
++         if(_set == 1)
++         {
++            this._subCategoryBar.setFontSize(14);
++            this._subCategoryBar.setCategories([{id:0,label:"ALL"},{id:1,label:"SWORDS"},{id:2,label:"AXES"},{id:7,label:"MACES"},{id:5,label:"DAGGERS"},{id:3,label:"BOWS"},{id:4,label:"CROSSBOWS"},{id:8,label:"STAFFS"},{id:6,label:"AMMO"}]);
++         }
++         else if(_set == 2)
++         {
++            this._subCategoryBar.setFontSize(16);
++            this._subCategoryBar.setCategories([{id:0,label:"ALL"},{id:20,label:"CLOTHES"},{id:21,label:"LIGHT"},{id:22,label:"HEAVY"},{id:23,label:"ROBES"},{id:24,label:"SHIELDS"},{id:25,label:"JEWELLERY"}]);
++         }
++         this._subBarSet = _set;
++      }
++      this._subCategoryBar.setVisible(_show);
++      this.applySubBarSpace(_show);
++      this._subCategoryBar.setActiveIndex(0);
++      this._subCategoryFilter.changeCategory(0,true);
++   }
++   function applySubBarSpace(a_apply)
++   {
++      if(a_apply == this._subBarApplied)
++      {
++         return undefined;
++      }
++      var _d = 26;
++      if(!a_apply)
++      {
++         _d = -26;
++      }
++      this.itemList._y = this.itemList._y + _d;
++      this.itemList._height = this.itemList._height - _d;
++      if(this.panelContainer.ListBackground != undefined)
++      {
++         this.panelContainer.ListBackground._y = this.panelContainer.ListBackground._y + _d;
++         this.panelContainer.ListBackground._height = this.panelContainer.ListBackground._height - _d;
++      }
++      this._subBarApplied = a_apply;
++   }
++   function onSubCategoryPress(event)
++   {
++      this._subCategoryFilter.changeCategory(event.id,false);
++   }
+    function onFilterChange()
+    {
+       this.itemList.requestInvalidate();
+@@ -378,6 +451,7 @@
+    function onCategoriesListSelectionChange(event)
+    {
+       this.dispatchEvent({type:"categoryChange",index:event.index});
++      this.updateSubCategoryBar();
+       if(event.index != -1)
+       {
+          gfx.io.GameDelegate.call("PlaySound",["UIMenuFocus"]);
