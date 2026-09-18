@@ -1,0 +1,10 @@
+Tag order at the end of icons_category_psychosteve.xml after adding the frame:
+  PlaceObject2Tag      ids=41       
+  ShowFrameTag         ids=-        
+  FrameLabelTag        ids=-        inv_loadouts
+  DefineShapeTag       ids=42       
+  DefineSpriteTag      ids=43       
+  PlaceObject2Tag      ids=42       
+  ShowFrameTag         ids=-        
+  PlaceObject2Tag      ids=43       
+  ShowFrameTag         ids=-        

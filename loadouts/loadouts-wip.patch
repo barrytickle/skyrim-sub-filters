@@ -1,0 +1,215 @@
+diff --git a/source/actionscript/ItemMenus/InventoryLists.as b/source/actionscript/ItemMenus/InventoryLists.as
+index d80b9c1..5f93007 100644
+--- a/source/actionscript/ItemMenus/InventoryLists.as
++++ b/source/actionscript/ItemMenus/InventoryLists.as
+@@ -10,6 +10,10 @@ class InventoryLists extends MovieClip
+    var _platform;
+    var _rightTabText;
+    var _sortFilter;
++   var _subCategoryFilter;
++   var _subCategoryBar;
++   var _subBarApplied;
++   var _subBarSet;
+    var _tabBarIconArt;
+    var _typeFilter;
+    var categoryLabel;
+@@ -41,6 +45,7 @@ class InventoryLists extends MovieClip
+       this._typeFilter = new skyui.filter.ItemTypeFilter();
+       this._nameFilter = new skyui.filter.NameFilter();
+       this._sortFilter = new skyui.filter.SortFilter();
++      this._subCategoryFilter = new skyui.filter.SubCategoryFilter();
+       this.categoryList = this.panelContainer.categoryList;
+       this.categoryLabel = this.panelContainer.categoryLabel;
+       this.itemList = this.panelContainer.itemList;
+@@ -79,11 +84,19 @@ class InventoryLists extends MovieClip
+       this.categoryList.listEnumeration = new skyui.components.list.BasicEnumeration(this.categoryList.entryList);
+       var _loc2_ = new skyui.components.list.FilteredEnumeration(this.itemList.entryList);
+       _loc2_.addFilter(this._typeFilter);
++      _loc2_.addFilter(this._subCategoryFilter);
+       _loc2_.addFilter(this._nameFilter);
+       _loc2_.addFilter(this._sortFilter);
+       this.itemList.listEnumeration = _loc2_;
+       this.itemList.listState.maxTextLength = 80;
+       this._typeFilter.addEventListener("filterChange",this,"onFilterChange");
++      this._subCategoryFilter.addEventListener("filterChange",this,"onFilterChange");
++      this._subCategoryBar = new skyui.components.SubCategoryBar(this.panelContainer,"subCategoryBar",this.panelContainer.getNextHighestDepth(),this.categoryList.background._width);
++      this._subCategoryBar.setPosition(this.categoryList._x,this.categoryList._y + this.categoryList._height + 2);
++      this._subCategoryBar.addEventListener("categoryPress",this,"onSubCategoryPress");
++      this._subBarApplied = false;
++      this._subBarSet = 0;
++      this.updateSubCategoryBar();
+       this._nameFilter.addEventListener("filterChange",this,"onFilterChange");
+       this._sortFilter.addEventListener("filterChange",this,"onFilterChange");
+       this.categoryList.addEventListener("itemPress",this,"onCategoriesItemPress");
+@@ -239,6 +252,11 @@ class InventoryLists extends MovieClip
+          _loc3_ += _loc12_;
+          _loc5_++;
+       }
++      // LOADOUTS: injected inside the handler so it survives the game
++      // re-sending the category list. flag 65536 cannot collide with
++      // Inventory.FILTERFLAG_* (which use 1..1023), so no real item matches it
++      // and the list stays empty. bDontHide keeps the icon lit regardless.
++      this.categoryList.entryList.push({text:"LOADOUTS",flag:65536,bDontHide:true,savedItemIndex:0,filterFlag:1});
+       if(this._bTabbed)
+       {
+          this.categoryList.selectedIndex = 0;
+@@ -305,6 +323,66 @@ class InventoryLists extends MovieClip
+          this._sortOrderKey = _loc2_.Input.controls.gamepad.sortOrder;
+       }
+    }
++   function updateSubCategoryBar()
++   {
++      if(this._subCategoryBar == undefined)
++      {
++         return undefined;
++      }
++      var _flag = this.categoryList.selectedEntry.flag;
++      var _set = 0;
++      if(_flag == 2)
++      {
++         _set = 1;
++      }
++      else if(_flag == 4)
++      {
++         _set = 2;
++      }
++      var _show = _set != 0;
++      if(_set != this._subBarSet)
++      {
++         if(_set == 1)
++         {
++            this._subCategoryBar.setFontSize(14);
++            this._subCategoryBar.setCategories([{id:0,label:"ALL"},{id:1,label:"SWORDS"},{id:2,label:"AXES"},{id:7,label:"MACES"},{id:5,label:"DAGGERS"},{id:3,label:"BOWS"},{id:4,label:"CROSSBOWS"},{id:8,label:"STAFFS"},{id:6,label:"AMMO"}]);
++         }
++         else if(_set == 2)
++         {
++            this._subCategoryBar.setFontSize(16);
++            this._subCategoryBar.setCategories([{id:0,label:"ALL"},{id:20,label:"CLOTHES"},{id:21,label:"LIGHT"},{id:22,label:"HEAVY"},{id:23,label:"ROBES"},{id:24,label:"SHIELDS"},{id:25,label:"JEWELLERY"}]);
++         }
++         this._subBarSet = _set;
++      }
++      this._subCategoryBar.setVisible(_show);
++      this.applySubBarSpace(_show);
++      this._subCategoryBar.setActiveIndex(0);
++      this._subCategoryFilter.changeCategory(0,true);
++   }
++   function applySubBarSpace(a_apply)
++   {
++      if(a_apply == this._subBarApplied)
++      {
++         return undefined;
++      }
++      var _d = 26;
++      if(!a_apply)
++      {
++         _d = -26;
++      }
++      this.itemList._y = this.itemList._y + _d;
++      this.itemList._height = this.itemList._height - _d;
++      if(this.panelContainer.ListBackground != undefined)
++      {
++         this.panelContainer.ListBackground._y = this.panelContainer.ListBackground._y + _d;
++         this.panelContainer.ListBackground._height = this.panelContainer.ListBackground._height - _d;
++      }
++      this._subBarApplied = a_apply;
++   }
++   function onSubCategoryPress(event)
++   {
++      this._subCategoryFilter.changeCategory(event.id,false);
++   }
+    function onFilterChange()
+    {
+       this.itemList.requestInvalidate();
+@@ -378,6 +456,7 @@ class InventoryLists extends MovieClip
+    function onCategoriesListSelectionChange(event)
+    {
+       this.dispatchEvent({type:"categoryChange",index:event.index});
++      this.updateSubCategoryBar();
+       if(event.index != -1)
+       {
+          gfx.io.GameDelegate.call("PlaySound",["UIMenuFocus"]);
+diff --git a/source/actionscript/ItemMenus/InventoryMenu.as b/source/actionscript/ItemMenus/InventoryMenu.as
+index a3cf398..3fe91af 100644
+--- a/source/actionscript/ItemMenus/InventoryMenu.as
++++ b/source/actionscript/ItemMenus/InventoryMenu.as
+@@ -27,7 +27,7 @@ class InventoryMenu extends ItemMenu
+    function InventoryMenu()
+    {
+       super();
+-      this._categoryListIconArt = ["cat_favorites","inv_all","inv_weapons","inv_armor","inv_potions","inv_scrolls","inv_food","inv_ingredients","inv_books","inv_keys","inv_misc"];
++      this._categoryListIconArt = ["cat_favorites","inv_all","inv_weapons","inv_armor","inv_potions","inv_scrolls","inv_food","inv_ingredients","inv_books","inv_keys","inv_misc","inv_loadouts"];
+       gfx.io.GameDelegate.addCallBack("AttemptEquip",this,"AttemptEquip");
+       gfx.io.GameDelegate.addCallBack("DropItem",this,"DropItem");
+       gfx.io.GameDelegate.addCallBack("AttemptChargeItem",this,"AttemptChargeItem");
+diff --git a/source/swfsources.cmake b/source/swfsources.cmake
+index 30284d3..53f219a 100644
+--- a/source/swfsources.cmake
++++ b/source/swfsources.cmake
+@@ -103,8 +103,10 @@ Add_SWF(bartermenu
+         Material.as
+         Weapon.as
+     }
++    Common/skyui/components/SubCategoryBar.as
+     Common/skyui/filter {
+         ItemTypeFilter.as
++        SubCategoryFilter.as
+         NameFilter.as
+         SortFilter.as
+     }
+@@ -163,8 +165,10 @@ Add_SWF(containermenu
+         Material.as
+         Weapon.as
+     }
++    Common/skyui/components/SubCategoryBar.as
+     Common/skyui/filter {
+         ItemTypeFilter.as
++        SubCategoryFilter.as
+         NameFilter.as
+         SortFilter.as
+     }
+@@ -338,8 +342,10 @@ Add_SWF(giftmenu
+         Material.as
+         Weapon.as
+     }
++    Common/skyui/components/SubCategoryBar.as
+     Common/skyui/filter {
+         ItemTypeFilter.as
++        SubCategoryFilter.as
+         NameFilter.as
+         SortFilter.as
+     }
+@@ -402,8 +408,10 @@ Add_SWF(inventorymenu
+         Material.as
+         Weapon.as
+     }
++    Common/skyui/components/SubCategoryBar.as
+     Common/skyui/filter {
+         ItemTypeFilter.as
++        SubCategoryFilter.as
+         NameFilter.as
+         SortFilter.as
+     }
+@@ -475,8 +483,10 @@ Add_SWF(magicmenu
+         Material.as
+         Weapon.as
+     }
++    Common/skyui/components/SubCategoryBar.as
+     Common/skyui/filter {
+         ItemTypeFilter.as
++        SubCategoryFilter.as
+         NameFilter.as
+         SortFilter.as
+     }
+@@ -654,10 +664,12 @@ Add_SWF(skyui_inventorylists
+     skyui/inventorylists.swf
+     skyui/inventorylists.xml
+     Common/skyui/defines/Input.as
++    Common/skyui/components/SubCategoryBar.as
+     Common/skyui/filter {
+         ItemTypeFilter.as
+         NameFilter.as
+         SortFilter.as
++        SubCategoryFilter.as
+     }
+     Common/skyui/components/list {
+         BasicListEntry.as
